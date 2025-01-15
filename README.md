@@ -4,4 +4,4 @@
 [![Maintainability](https://api.codeclimate.com/v1/badges/326a5861695f2c1c733b/maintainability)](https://codeclimate.com/github/Kseniia66/frontend-project-11/maintainability)
 
 Проект на Vercel: 
-https://frontend-project-11-tau-black.vercel.app/
+https://frontend-project-11-one-theta.vercel.app/
