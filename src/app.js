@@ -1,67 +1,141 @@
-import onChange from 'on-change';
 import * as yup from 'yup';
+import i18next from 'i18next';
+import axios from 'axios';
+import render from './view.js';
+import ru from './ru.js';
+import parseRSS from './parser.js';
 
-const initialState = {
-  status: '',
-  value: '',
-  isValid: true,
-  posts: [],
-  feeds: [],
+const getAxiosResponse = (link) => {
+  const url = `https://allorigins.hexlet.app/get?disableCache=true&url=${encodeURIComponent(link)}`;
+  return axios.get(url);
 };
-const schema = (addedUrls) => yup.object({
-  url: yup
-    .string()
-    .url('Ссылка должна быть валидным URL')
-    .required('Поле не должно быть пустым')
-    .notOneOf(addedUrls, 'RSS-лента уже добавлена'),
-});
 
 const app = () => {
-  const input = document.querySelector('#url-input');
-  const button = document.querySelector('button[type="submit"]');
-  const form = document.querySelector('.rss-form');
+  const elements = {
+    form: document.querySelector('.rss-form'),
+    input: document.querySelector('#url-input'),
+    submitButton: document.querySelector('button[type="submit"]'),
+    feedback: document.querySelector('.feedback'),
+    rssFeeds: document.querySelector('.feeds'),
+    rssPosts: document.querySelector('.posts'),
+    modal: document.querySelector('#modal'),
+  };
 
-  const watchedState = onChange(initialState, (path, value) => {
-    if (path === 'isValid') {
-      input.classList.toggle('is-invalid', !value);
-    }
-    if (path === 'status') {
-      // Блокировка формы на время загрузки
-      input.disabled = value === 'loading';
-      button.disabled = value === 'loading';
-    }
-    if (path === 'feeds') {
-      // Очистка формы после успешного добавления
-      if (value.length > initialState.feeds.length) {
-        input.value = '';
-        input.focus();
-      }
-    }
+  const i18n = i18next.createInstance();
+  i18n.init({
+    lng: 'ru',
+    debug: false,
+    resources: { ru },
   });
 
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
+  const initialState = {
+    form: {
+      isValid: true,
+      error: '',
+    },
+    loadingProcess: {
+      status: 'idle', // 'loading', 'success', 'fail'
+      error: '',
+    },
+    uiState: {
+      viewedPosts: new Set(),
+    },
+    posts: [],
+    feeds: [],
+  };
 
-    const url = input.value.trim();
+  const { state, renderForm } = render(elements, i18n, initialState);
 
-    // Валидация с использованием промисов
-    schema(watchedState.feeds)
-      .validate({ url }, { abortEarly: false })
-      .then(() => {
-        // Успешная валидация
-        watchedState.isValid = true;
-        watchedState.status = 'valid';
+  const schema = (addedUrls) => yup.object({
+    url: yup
+      .string()
+      .url('errors.invalidUrl')
+      .required('errors.required')
+      .notOneOf(addedUrls, 'errors.alreadyExists'),
+  });
+
+  yup.setLocale({
+    string: {
+      url: () => ({ key: 'errors.invalidUrl' }),
+    },
+    mixed: {
+      notOneOf: () => ({ key: 'errors.alreadyExists' }),
+    },
+  });
+  const validateForm = (url, addedUrls) => schema(addedUrls)
+    .validate({ url }, { abortEarly: false })
+    .then(() => {
+      state.form.isValid = true;
+      state.form.error = '';
+    })
+    .catch((err) => {
+      const [firstError] = err.errors;
+      state.form.isValid = false;
+      state.form.error = firstError;
+      throw err;
+    });
+
+  const fetchRSS = (url) => {
+    state.loadingProcess.status = 'loading';
+    return getAxiosResponse(url)
+      .then((response) => {
+        const { feedTitle, feedDescription, posts } = parseRSS(response.data.contents);
+
+        state.feeds.push({
+          id: Date.now(),
+          title: feedTitle,
+          description: feedDescription,
+          url,
+        });
+
+        posts.forEach((post) => {
+          state.posts.push({
+            id: Date.now(),
+            feedId: state.feeds[state.feeds.length - 1].id,
+            ...post,
+          });
+        });
+
+        state.loadingProcess.status = 'success';
+        state.form.error = '';
       })
       .catch((err) => {
-        // Ошибка валидации
-        watchedState.isValid = false;
-        watchedState.status = 'invalid';
-        console.error(err.errors.join(', ')); // Выводим сообщения об ошибках
+        if (err.message === 'Network Error') {
+          state.loadingProcess.status = 'fail';
+          state.loadingProcess.error = 'errors.networkError';
+        } else if (err.message === 'errors.invalidRSS') {
+          state.loadingProcess.status = 'fail';
+          state.loadingProcess.error = 'errors.invalidRSS';
+        } else {
+          state.loadingProcess.status = 'fail';
+          state.loadingProcess.error = 'errors.networkError';
+        }
+        throw err;
+      });
+  };
+
+  elements.form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const formData = new FormData(elements.form);
+    const url = formData.get('url');
+
+    validateForm(url, state.feeds.map((feed) => feed.url))
+      .then(() => fetchRSS(url))
+      .then(() => {
+        elements.input.value = '';
+        elements.input.focus();
+        elements.feedback.textContent = i18n.t('loading.success');
+        elements.feedback.classList.remove('text-danger');
+        elements.feedback.classList.add('text-success');
+      })
+      .catch((err) => {
+        elements.feedback.textContent = i18n.t(state.form.error || state.loadingProcess.error);
+        elements.feedback.classList.remove('text-success');
+        elements.feedback.classList.add('text-danger');
       });
   });
-  input.addEventListener('input', () => {
-    input.style.border = ''; // Убираем красную рамку
-  });
+
+  renderForm();
 };
 
 export default app;
