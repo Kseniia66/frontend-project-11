@@ -1,11 +1,17 @@
 import onChange from 'on-change';
 
 const renderForm = (elements, i18n, state) => {
-  const { input, feedback } = elements;
+  const { input, feedback, submitButton } = elements;
 
   if (state.loadingProcess.status === 'success') {
     input.value = '';
     input.focus();
+  }
+
+  if (state.loadingProcess.status === 'loading') {
+    submitButton.disabled = true;
+  } else {
+    submitButton.disabled = false;
   }
 
   if (state.form.error) {
@@ -47,14 +53,11 @@ const renderFeeds = (elements, i18n, state) => {
   const feedsTitle = document.createElement('h2');
   feedsTitle.textContent = i18n.t('feeds');
   feedsTitle.classList.add('card-title', 'h4');
-  div.append(feedsTitle);
-  divCards.append(div);
-  rssFeeds.append(divCards);
+
+  const feedElement = document.createElement('ul');
+  feedElement.classList.add('list-group', 'border-0', 'rounded-0');
 
   state.feeds.forEach((feed) => {
-    const feedElement = document.createElement('ul');
-    feedElement.classList.add('list-group', 'border-0', 'rounded-0');
-
     const cardBody = document.createElement('li');
     cardBody.classList.add('list-group-item', 'border-0', 'border-end-0');
 
@@ -68,6 +71,9 @@ const renderFeeds = (elements, i18n, state) => {
     description.classList.add('card-text');
     description.textContent = feed.description;
 
+    div.append(feedsTitle);
+    divCards.append(div);
+    rssFeeds.append(divCards);
     cardBody.append(title, description);
     feedElement.append(cardBody);
     rssFeeds.append(feedElement);
@@ -75,7 +81,7 @@ const renderFeeds = (elements, i18n, state) => {
 };
 
 const renderPosts = (elements, i18n, state) => {
-  const { rssPosts } = elements;
+  const { rssPosts, modal } = elements;
 
   if (state.loadingProcess.error === 'errors.networkError') {
     return;
@@ -96,31 +102,41 @@ const renderPosts = (elements, i18n, state) => {
   const postsTitle = document.createElement('h2');
   postsTitle.textContent = i18n.t('posts');
   postsTitle.classList.add('card-title', 'h4');
-  div.append(postsTitle);
-  divCards.append(div);
-  rssPosts.append(divCards);
+
+  const postElement = document.createElement('ul');
+  postElement.classList.add('list-group', 'border-0', 'rounded-0');
 
   state.posts.forEach((post) => {
-    const postElement = document.createElement('ul');
-    postElement.classList.add('list-group', 'border-0', 'rounded-0');
-
     const cardBody = document.createElement('li');
     cardBody.classList.add('list-group-item', 'd-flex', 'justify-content-between', 'align-items-start', 'border-0', 'border-end-0');
 
     const title = document.createElement('a');
-    title.classList.add('fw-bold');
     title.href = post.link;
+    const isViewed = state.uiState.viewedPosts.has(post.id);
+    title.classList.add(isViewed ? ('fw-normal', 'link-secondary') : 'fw-bold');
+    title.dataset.id = post.id;
     title.target = '_blank';
     title.textContent = post.title;
+    title.rel = 'noopener noreferrer';
 
     const button = document.createElement('button');
     button.setAttribute('type', 'button');
     button.classList.add('btn', 'btn-outline-primary', 'btn-sm');
-    // button.dataset.id = id;
+    button.dataset.id = post.id;
     button.dataset.bsToggle = 'modal';
     button.dataset.bsTarget = '#modal';
     button.textContent = i18n.t('preview');
 
+    modal.querySelector('.modal-title').textContent = post.title;
+    modal.querySelector('.modal-body').textContent = post.description;
+
+    const btnModal = modal.querySelector('.full-article');
+    btnModal.href = post.link;
+    btnModal.target = '_blank';
+
+    div.append(postsTitle);
+    divCards.append(div);
+    rssPosts.append(divCards);
     cardBody.append(title, button);
     postElement.append(cardBody);
     rssPosts.append(postElement);

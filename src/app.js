@@ -1,6 +1,7 @@
 import * as yup from 'yup';
 import i18next from 'i18next';
 import axios from 'axios';
+import { uniqueId } from 'lodash';
 import render from './view.js';
 import ru from './ru.js';
 import parseRSS from './parser.js';
@@ -8,6 +9,40 @@ import parseRSS from './parser.js';
 const getAxiosResponse = (link) => {
   const url = `https://allorigins.hexlet.app/get?disableCache=true&url=${encodeURIComponent(link)}`;
   return axios.get(url);
+};
+
+const startAutoUpdate = (watchedState) => {
+  const update = () => {
+    const promises = watchedState.feeds.map(({ id, url }) => getAxiosResponse(url)
+      .then((response) => {
+        const { posts: newPosts } = parseRSS(response.data.contents);
+
+        const oldPosts = watchedState.posts.filter((post) => post.feedId === id);
+        const oldPostIds = new Set(oldPosts.map((post) => post.id));
+
+        const filteredPosts = newPosts.filter((post) => !oldPostIds.has(post.id));
+
+        if (filteredPosts.length > 0) {
+          const relatedPosts = filteredPosts.map((post) => ({
+            ...post,
+            id: uniqueId(),
+            feedId: id,
+          }));
+
+          watchedState.posts.unshift(...relatedPosts);
+        }
+      })
+      .catch((err) => {
+        console.error(`Ошибка при проверке RSS-канала с id ${id}:`, err);
+      }));
+
+    Promise.all(promises)
+      .finally(() => {
+        setTimeout(update, 5000);
+      });
+  };
+
+  update();
 };
 
 const app = () => {
@@ -81,23 +116,25 @@ const app = () => {
       .then((response) => {
         const { feedTitle, feedDescription, posts } = parseRSS(response.data.contents);
 
-        state.feeds.push({
-          id: Date.now(),
+        const feedId = uniqueId();
+        state.feeds.unshift({
+          id: feedId,
           title: feedTitle,
           description: feedDescription,
           url,
         });
 
         posts.forEach((post) => {
-          state.posts.push({
-            id: Date.now(),
-            feedId: state.feeds[state.feeds.length - 1].id,
+          state.posts.unshift({
+            id: uniqueId(),
+            feedId,
             ...post,
           });
         });
 
         state.loadingProcess.status = 'success';
         state.form.error = '';
+        startAutoUpdate(state);
       })
       .catch((err) => {
         if (err.message === 'Network Error') {
