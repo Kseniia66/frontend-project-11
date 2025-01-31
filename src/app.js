@@ -11,40 +11,6 @@ const getAxiosResponse = (link) => {
   return axios.get(url);
 };
 
-const startAutoUpdate = (watchedState) => {
-  const update = () => {
-    const promises = watchedState.feeds.map(({ id, url }) => getAxiosResponse(url)
-      .then((response) => {
-        const { posts: newPosts } = parseRSS(response.data.contents);
-
-        const oldPosts = watchedState.posts.filter((post) => post.feedId === id);
-        const oldPostIds = new Set(oldPosts.map((post) => post.id));
-
-        const filteredPosts = newPosts.filter((post) => !oldPostIds.has(post.id));
-
-        if (filteredPosts.length > 0) {
-          const relatedPosts = filteredPosts.map((post) => ({
-            ...post,
-            id: uniqueId(),
-            feedId: id,
-          }));
-
-          watchedState.posts.unshift(...relatedPosts);
-        }
-      })
-      .catch((err) => {
-        console.error(`Ошибка при проверке RSS-канала с id ${id}:`, err);
-      }));
-
-    Promise.all(promises)
-      .finally(() => {
-        setTimeout(update, 5000);
-      });
-  };
-
-  update();
-};
-
 const app = () => {
   const elements = {
     form: document.querySelector('.rss-form'),
@@ -79,7 +45,7 @@ const app = () => {
     feeds: [],
   };
 
-  const { state, renderForm } = render(elements, i18n, initialState);
+  const { state } = render(elements, i18n, initialState);
 
   const schema = (addedUrls) => yup.object({
     url: yup
@@ -110,31 +76,79 @@ const app = () => {
       throw err;
     });
 
+  const checkForNewPosts = () => {
+    const existingTitles = new Set(state.posts.map((post) => post.title));
+    const existingLinks = new Set(state.posts.map((post) => post.link));
+
+    const feedPromises = state.feeds.map((feed) => getAxiosResponse(feed.url)
+      .then((response) => {
+        const parsedData = parseRSS(response.data.contents);
+        if (!parsedData) {
+          throw new Error('errors.invalidRSS');
+        }
+        const newPosts = parsedData.posts
+          .filter((post) => !existingLinks.has(post.link) && !existingTitles.has(post.title))
+          .map((post) => ({
+            ...post,
+            id: uniqueId(),
+            feedId: feed.id,
+          }));
+
+        return newPosts;
+      })
+      .catch((error) => {
+        console.error('Ошибка при проверке фида:', feed.url, error.message);
+        return [];
+      }));
+
+    Promise.all(feedPromises)
+      .then((newPosts) => {
+        const uniqueNewPosts = newPosts.flat().filter(
+          (post) => !state.posts.some((existingPost) => existingPost.link === post.link),
+        );
+        if (uniqueNewPosts.length > 0) {
+          state.posts = [...uniqueNewPosts, ...state.posts];
+          render(elements, i18n, state);
+        }
+      })
+      .catch((error) => {
+        console.error('Ошибка при проверке новых постов:', error);
+      })
+      .finally(() => {
+        setTimeout(checkForNewPosts, 5000);
+      });
+  };
   const fetchRSS = (url) => {
     state.loadingProcess.status = 'loading';
     return getAxiosResponse(url)
       .then((response) => {
-        const { feedTitle, feedDescription, posts } = parseRSS(response.data.contents);
+        const parsedData = parseRSS(response.data.contents);
+        if (!parsedData) {
+          throw new Error('errors.invalidRSS');
+        }
+        const { feedTitle, feedDescription, posts } = parsedData;
 
         const feedId = uniqueId();
-        state.feeds.unshift({
+        state.feeds.push({
           id: feedId,
           title: feedTitle,
           description: feedDescription,
           url,
         });
 
-        posts.forEach((post) => {
-          state.posts.unshift({
+        const existingLinks = new Set(state.posts.map((post) => post.link));
+        const newPosts = posts
+          .filter((post) => !existingLinks.has(post.link))
+          .map((post) => ({
             id: uniqueId(),
             feedId,
             ...post,
-          });
-        });
+          }));
 
+        state.posts = [...newPosts, ...state.posts];
         state.loadingProcess.status = 'success';
         state.form.error = '';
-        startAutoUpdate(state);
+        checkForNewPosts();
       })
       .catch((err) => {
         if (err.message === 'Network Error') {
@@ -145,34 +159,29 @@ const app = () => {
           state.loadingProcess.error = 'errors.invalidRSS';
         } else {
           state.loadingProcess.status = 'fail';
-          state.loadingProcess.error = 'errors.networkError';
+          state.loadingProcess.error = 'errors.unknown';
         }
         throw err;
       });
   };
 
-  elements.form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const formData = new FormData(elements.form);
-    const url = formData.get('url');
+  elements.form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const url = elements.input.value;
+    const addedUrls = state.feeds.map((feed) => feed.url);
 
-    validateForm(url, state.feeds.map((feed) => feed.url))
+    validateForm(url, addedUrls)
       .then(() => fetchRSS(url))
-      .then(() => {
-        elements.input.value = '';
-        elements.input.focus();
-        elements.feedback.textContent = i18n.t('loading.success');
-        elements.feedback.classList.remove('text-danger');
-        elements.feedback.classList.add('text-success');
-      })
       .catch((err) => {
-        elements.feedback.textContent = i18n.t(state.form.error || state.loadingProcess.error);
-        elements.feedback.classList.remove('text-success');
-        elements.feedback.classList.add('text-danger');
+        console.error(err);
+        state.loadingProcess.error = state.form.error;
+      })
+      .finally(() => {
+        render(elements, i18n, state);
       });
   });
 
-  renderForm();
+  setTimeout(checkForNewPosts, 5000);
 };
 
 export default app;

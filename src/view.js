@@ -14,9 +14,9 @@ const renderForm = (elements, i18n, state) => {
     submitButton.disabled = false;
   }
 
-  if (state.form.error) {
+  if (state.loadingProcess.error) {
     input.classList.add('is-invalid');
-    feedback.textContent = i18n.t(state.form.error);
+    feedback.textContent = i18n.t(state.loadingProcess.error);
     feedback.classList.add('text-danger');
     feedback.classList.remove('text-success');
   } else if (state.loadingProcess.status === 'success') {
@@ -119,6 +119,12 @@ const renderPosts = (elements, i18n, state) => {
     title.textContent = post.title;
     title.rel = 'noopener noreferrer';
 
+    title.addEventListener('click', (e) => {
+      e.preventDefault();
+      state.uiState.viewedPosts.add(post.id);
+      window.open(post.link, '_blank');
+    });
+
     const button = document.createElement('button');
     button.setAttribute('type', 'button');
     button.classList.add('btn', 'btn-outline-primary', 'btn-sm');
@@ -126,6 +132,15 @@ const renderPosts = (elements, i18n, state) => {
     button.dataset.bsToggle = 'modal';
     button.dataset.bsTarget = '#modal';
     button.textContent = i18n.t('preview');
+    button.addEventListener('click', () => {
+      state.uiState.viewedPosts.add(post.id);
+      modal.querySelector('.modal-title').textContent = post.title;
+      modal.querySelector('.modal-body').textContent = post.description;
+
+      const btnModal = modal.querySelector('.full-article');
+      btnModal.href = post.link;
+      btnModal.target = '_blank';
+    });
 
     modal.querySelector('.modal-title').textContent = post.title;
     modal.querySelector('.modal-body').textContent = post.description;
