@@ -6,24 +6,36 @@ import render from './view.js';
 import ru from './ru.js';
 import parseRSS from './parser.js';
 
-const getAxiosResponse = (link) => {
+const initialState = {
+  form: {
+    isValid: true,
+    error: '',
+  },
+  loadingProcess: {
+    status: 'idle', // 'loading', 'success', 'fail'
+    error: '',
+  },
+  uiState: {
+    viewedPosts: new Set(),
+  },
+  posts: [],
+  feeds: [],
+};
+
+const addProxy = (link) => {
   const proxyUrl = new URL('https://allorigins.hexlet.app/get');
   proxyUrl.searchParams.set('disableCache', 'true');
   proxyUrl.searchParams.set('url', link);
   return proxyUrl.toString();
 };
 
-const fetchWithProxy = (link, options = {}) => {
-  const proxiedUrl = getAxiosResponse(link);
-  return axios(proxiedUrl, options);
-};
-
 const checkForNewPosts = (state, elements, i18n) => {
   const updatedState = { ...state };
+
   const existingTitles = new Set(updatedState.posts.map((post) => post.title));
   const existingLinks = new Set(updatedState.posts.map((post) => post.link));
 
-  const feedPromises = state.feeds.map((feed) => fetchWithProxy(feed.url)
+  const feedPromises = state.feeds.map((feed) => axios.get(addProxy(feed.url))
     .then((response) => {
       const parsedData = parseRSS(response.data.contents);
       if (!parsedData) {
@@ -51,22 +63,23 @@ const checkForNewPosts = (state, elements, i18n) => {
       );
       if (uniqueNewPosts.length > 0) {
         updatedState.posts = [...uniqueNewPosts, ...updatedState.posts];
-        Object.assign(state, updatedState);
-        render(elements, i18n, state);
+        render(elements, i18n, updatedState);
       }
     })
     .catch((error) => {
       console.error('Ошибка при проверке новых постов:', error);
     })
     .finally(() => {
-      setTimeout(() => checkForNewPosts(state, elements, i18n), 5000);
+      setTimeout(() => checkForNewPosts(updatedState, elements, i18n), 5000);
     });
 };
 
 const fetchRSS = (url, state, elements, i18n) => {
   const updatedState = { ...state };
   updatedState.loadingProcess.status = 'loading';
-  return fetchWithProxy(url)
+  render(elements, i18n, updatedState);
+
+  return axios.get(addProxy(url))
     .then((response) => {
       const parsedData = parseRSS(response.data.contents);
       if (!parsedData) {
@@ -75,14 +88,14 @@ const fetchRSS = (url, state, elements, i18n) => {
       const { feedTitle, feedDescription, posts } = parsedData;
 
       const feedId = uniqueId();
-      state.feeds.push({
+      updatedState.feeds.push({
         id: feedId,
         title: feedTitle,
         description: feedDescription,
         url,
       });
 
-      const existingLinks = new Set(state.posts.map((post) => post.link));
+      const existingLinks = new Set(updatedState.posts.map((post) => post.link));
       const newPosts = posts
         .filter((post) => !existingLinks.has(post.link))
         .map((post) => ({
@@ -91,13 +104,11 @@ const fetchRSS = (url, state, elements, i18n) => {
           ...post,
         }));
 
-      updatedState.posts = [...newPosts, ...updatedState.posts];
+      updatedState.posts = [...newPosts, ...state.posts];
       updatedState.loadingProcess.status = 'success';
       updatedState.form.error = '';
-      // return updatedState;
-      Object.assign(state, updatedState);
-      render(elements, i18n, state);
-      checkForNewPosts(state, elements, i18n);
+      render(elements, i18n, updatedState);
+      checkForNewPosts(updatedState, elements, i18n);
     })
     .catch((err) => {
       if (err.message === 'Network Error') {
@@ -110,8 +121,41 @@ const fetchRSS = (url, state, elements, i18n) => {
         updatedState.loadingProcess.status = 'fail';
         updatedState.loadingProcess.error = 'errors.unknown';
       }
-      Object.assign(state, updatedState);
-      render(elements, i18n, state);
+      render(elements, i18n, updatedState);
+      throw err;
+    });
+};
+
+const schema = (addedUrls) => yup.object({
+  url: yup
+    .string()
+    .url('errors.invalidUrl')
+    .required('errors.required')
+    .notOneOf(addedUrls, 'errors.alreadyExists'),
+});
+
+yup.setLocale({
+  string: {
+    url: () => ({ key: 'errors.invalidUrl' }),
+  },
+  mixed: {
+    notOneOf: () => ({ key: 'errors.alreadyExists' }),
+  },
+});
+
+const validateForm = (url, addedUrls, state) => {
+  const updatedState = { ...state };
+
+  return schema(addedUrls)
+    .validate({ url })
+    .then(() => {
+      updatedState.form.isValid = true;
+      updatedState.form.error = '';
+    })
+    .catch((err) => {
+      const [firstError] = err.errors;
+      updatedState.form.isValid = false;
+      updatedState.form.error = firstError;
       throw err;
     });
 };
@@ -133,72 +177,24 @@ const app = () => {
     debug: false,
     resources: { ru },
   }).then(() => {
-    const initialState = {
-      form: {
-        isValid: true,
-        error: '',
-      },
-      loadingProcess: {
-        status: 'idle', // 'loading', 'success', 'fail'
-        error: '',
-      },
-      uiState: {
-        viewedPosts: new Set(),
-      },
-      posts: [],
-      feeds: [],
-    };
-
-    const { state } = render(elements, i18n, initialState);
-
-    const schema = (addedUrls) => yup.object({
-      url: yup
-        .string()
-        .url('errors.invalidUrl')
-        .required('errors.required')
-        .notOneOf(addedUrls, 'errors.alreadyExists'),
-    });
-
-    yup.setLocale({
-      string: {
-        url: () => ({ key: 'errors.invalidUrl' }),
-      },
-      mixed: {
-        notOneOf: () => ({ key: 'errors.alreadyExists' }),
-      },
-    });
-    const validateForm = (url, addedUrls) => schema(addedUrls)
-      .validate({ url }, { abortEarly: false })
-      .then(() => {
-        state.form.isValid = true;
-        state.form.error = '';
-      })
-      .catch((err) => {
-        const [firstError] = err.errors;
-        state.form.isValid = false;
-        state.form.error = firstError;
-        throw err;
-      });
+    const { state } = { ...initialState };
+    render(elements, i18n, state);
 
     elements.form.addEventListener('submit', (event) => {
       event.preventDefault();
       const url = elements.input.value;
       const addedUrls = state.feeds.map((feed) => feed.url);
 
-      validateForm(url, addedUrls)
+      validateForm(url, addedUrls, state)
         .then(() => fetchRSS(url, state, elements, i18n))
         .catch((err) => {
           console.error(err);
           state.loadingProcess.error = state.form.error;
           render(elements, i18n, state);
         });
-      // .finally(() => {
-      //   render(elements, i18n, state);
-      // });
     });
 
     setTimeout(() => checkForNewPosts(state, elements, i18n), 5000);
   });
 };
-
 export default app;
