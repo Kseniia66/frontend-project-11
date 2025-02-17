@@ -1,26 +1,11 @@
 import * as yup from 'yup';
 import i18next from 'i18next';
 import axios from 'axios';
+import onChange from 'on-change';
 import { uniqueId } from 'lodash';
 import render from './view.js';
 import ru from './ru.js';
 import parseRSS from './parser.js';
-
-const initialState = {
-  form: {
-    isValid: true,
-    error: '',
-  },
-  loadingProcess: {
-    status: 'idle', // 'loading', 'success', 'fail'
-    error: '',
-  },
-  uiState: {
-    viewedPosts: new Set(),
-  },
-  posts: [],
-  feeds: [],
-};
 
 const addProxy = (link) => {
   const proxyUrl = new URL('https://allorigins.hexlet.app/get');
@@ -63,7 +48,6 @@ const checkForNewPosts = (state, elements, i18n) => {
       );
       if (uniqueNewPosts.length > 0) {
         updatedState.posts = [...uniqueNewPosts, ...updatedState.posts];
-        render(elements, i18n, updatedState);
       }
     })
     .catch((error) => {
@@ -121,41 +105,6 @@ const fetchRSS = (url, state, elements, i18n) => {
         updatedState.loadingProcess.status = 'fail';
         updatedState.loadingProcess.error = 'errors.unknown';
       }
-      render(elements, i18n, updatedState);
-      throw err;
-    });
-};
-
-const schema = (addedUrls) => yup.object({
-  url: yup
-    .string()
-    .url('errors.invalidUrl')
-    .required('errors.required')
-    .notOneOf(addedUrls, 'errors.alreadyExists'),
-});
-
-yup.setLocale({
-  string: {
-    url: () => ({ key: 'errors.invalidUrl' }),
-  },
-  mixed: {
-    notOneOf: () => ({ key: 'errors.alreadyExists' }),
-  },
-});
-
-const validateForm = (url, addedUrls, state) => {
-  const updatedState = { ...state };
-
-  return schema(addedUrls)
-    .validate({ url })
-    .then(() => {
-      updatedState.form.isValid = true;
-      updatedState.form.error = '';
-    })
-    .catch((err) => {
-      const [firstError] = err.errors;
-      updatedState.form.isValid = false;
-      updatedState.form.error = firstError;
       throw err;
     });
 };
@@ -177,8 +126,58 @@ const app = () => {
     debug: false,
     resources: { ru },
   }).then(() => {
-    const { state } = { ...initialState };
-    render(elements, i18n, state);
+    const initialState = {
+      form: {
+        isValid: true,
+        error: '',
+      },
+      loadingProcess: {
+        status: 'idle', // 'loading', 'success', 'fail'
+        error: '',
+      },
+      uiState: {
+        viewedPosts: new Set(),
+      },
+      posts: [],
+      feeds: [],
+    };
+
+    const state = onChange({ ...initialState }, () => render(elements, i18n, state));
+
+    const schema = (addedUrls) => yup.object({
+      url: yup
+        .string()
+        .url('errors.invalidUrl')
+        .required('errors.required')
+        .notOneOf(addedUrls, 'errors.alreadyExists'),
+    });
+
+    yup.setLocale({
+      string: {
+        url: () => ({ key: 'errors.invalidUrl' }),
+      },
+      mixed: {
+        notOneOf: () => ({ key: 'errors.alreadyExists' }),
+      },
+    });
+
+    const validateForm = (url, addedUrls, state) => {
+      const updatedState = { ...state };
+
+      return schema(addedUrls)
+        .validate({ url })
+        .then(() => {
+          updatedState.form.isValid = true;
+          updatedState.form.error = '';
+          return updatedState;
+        })
+        .catch((err) => {
+          const [firstError] = err.errors;
+          updatedState.form.isValid = false;
+          updatedState.form.error = firstError;
+          throw err;
+        });
+    };
 
     elements.form.addEventListener('submit', (event) => {
       event.preventDefault();
@@ -190,8 +189,32 @@ const app = () => {
         .catch((err) => {
           console.error(err);
           state.loadingProcess.error = state.form.error;
-          render(elements, i18n, state);
         });
+    });
+
+    elements.rssPosts.addEventListener('click', (event) => {
+      const { target } = event;
+      const postId = target.dataset.id;
+
+      if (!postId) return;
+      const post = state.posts.find((p) => p.id === postId);
+      if (!post) return;
+
+      state.uiState.viewedPosts.add(post.id);
+
+      if (target.classList.contains('post-title')) {
+        event.preventDefault();
+        window.open(post.link, '_blank');
+      }
+
+      if (target.classList.contains('view-description')) {
+        elements.modal.querySelector('.modal-title').textContent = post.title;
+        elements.modal.querySelector('.modal-body').textContent = post.description;
+
+        const btnModal = elements.modal.querySelector('.full-article');
+        btnModal.href = post.link;
+        btnModal.target = '_blank';
+      }
     });
 
     setTimeout(() => checkForNewPosts(state, elements, i18n), 5000);

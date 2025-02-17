@@ -118,12 +118,7 @@ const renderPosts = (elements, i18n, state) => {
     title.target = '_blank';
     title.textContent = post.title;
     title.rel = 'noopener noreferrer';
-
-    title.addEventListener('click', (e) => {
-      e.preventDefault();
-      state.uiState.viewedPosts.add(post.id);
-      window.open(post.link, '_blank');
-    });
+    title.classList.add('post-title');
 
     const button = document.createElement('button');
     button.setAttribute('type', 'button');
@@ -132,15 +127,7 @@ const renderPosts = (elements, i18n, state) => {
     button.dataset.bsToggle = 'modal';
     button.dataset.bsTarget = '#modal';
     button.textContent = i18n.t('preview');
-    button.addEventListener('click', () => {
-      state.uiState.viewedPosts.add(post.id);
-      modal.querySelector('.modal-title').textContent = post.title;
-      modal.querySelector('.modal-body').textContent = post.description;
-
-      const btnModal = modal.querySelector('.full-article');
-      btnModal.href = post.link;
-      btnModal.target = '_blank';
-    });
+    button.classList.add('view-description');
 
     modal.querySelector('.modal-title').textContent = post.title;
     modal.querySelector('.modal-body').textContent = post.description;
