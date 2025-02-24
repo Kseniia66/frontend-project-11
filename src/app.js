@@ -105,6 +105,7 @@ const fetchRSS = (url, state, elements, i18n) => {
         updatedState.loadingProcess.status = 'fail';
         updatedState.loadingProcess.error = 'errors.unknown';
       }
+      render(elements, i18n, updatedState);
       throw err;
     });
 };
