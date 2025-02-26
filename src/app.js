@@ -105,7 +105,6 @@ const fetchRSS = (url, state, elements, i18n) => {
         updatedState.loadingProcess.status = 'fail';
         updatedState.loadingProcess.error = 'errors.unknown';
       }
-      render(elements, i18n, updatedState);
       throw err;
     });
 };
@@ -163,21 +162,18 @@ const app = () => {
     });
 
     const validateForm = (url, addedUrls, state) => {
-      const updatedState = { ...state };
+      const isValid = schema(addedUrls).isValidSync({ url });
 
-      return schema(addedUrls)
-        .validate({ url })
-        .then(() => {
-          updatedState.form.isValid = true;
-          updatedState.form.error = '';
-          return updatedState;
-        })
-        .catch((err) => {
-          const [firstError] = err.errors;
-          updatedState.form.isValid = false;
-          updatedState.form.error = firstError;
-          throw err;
-        });
+      if (isValid) {
+        state.form.isValid = true;
+        state.form.error = '';
+        return state;
+      }
+      const errors = schema(addedUrls).validateSync({ url }, { abortEarly: false });
+      const [firstError] = errors.errors;
+      state.form.isValid = false;
+      state.form.error = firstError;
+      throw new Error(firstError);
     };
 
     elements.form.addEventListener('submit', (event) => {
@@ -185,12 +181,13 @@ const app = () => {
       const url = elements.input.value;
       const addedUrls = state.feeds.map((feed) => feed.url);
 
-      validateForm(url, addedUrls, state)
-        .then(() => fetchRSS(url, state, elements, i18n))
-        .catch((err) => {
-          console.error(err);
-          state.loadingProcess.error = state.form.error;
-        });
+      try {
+        const updatedState = validateForm(url, addedUrls, state);
+        fetchRSS(url, updatedState, elements, i18n);
+      } catch (err) {
+        console.error(err);
+        state.loadingProcess.error = state.form.error;
+      }
     });
 
     elements.rssPosts.addEventListener('click', (event) => {
