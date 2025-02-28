@@ -144,14 +144,6 @@ const app = () => {
 
     const state = onChange({ ...initialState }, () => render(elements, i18n, state));
 
-    const schema = (addedUrls) => yup.object({
-      url: yup
-        .string()
-        .url('errors.invalidUrl')
-        .required('errors.required')
-        .notOneOf(addedUrls, 'errors.alreadyExists'),
-    });
-
     yup.setLocale({
       string: {
         url: () => ({ key: 'errors.invalidUrl' }),
@@ -161,19 +153,15 @@ const app = () => {
       },
     });
 
-    const validateForm = (url, addedUrls, state) => {
-      const isValid = schema(addedUrls).isValidSync({ url });
-
-      if (isValid) {
-        state.form.isValid = true;
-        state.form.error = '';
-        return state;
-      }
-      const errors = schema(addedUrls).validateSync({ url }, { abortEarly: false });
-      const [firstError] = errors.errors;
-      state.form.isValid = false;
-      state.form.error = firstError;
-      throw new Error(firstError);
+    const validateForm = (url, addedUrls) => {
+      const schema = yup.object({
+        url: yup
+          .string()
+          .url('errors.invalidUrl')
+          .required('errors.required')
+          .notOneOf(addedUrls, 'errors.alreadyExists'),
+      });
+      return schema.validate({ url });
     };
 
     elements.form.addEventListener('submit', (event) => {
@@ -181,13 +169,20 @@ const app = () => {
       const url = elements.input.value;
       const addedUrls = state.feeds.map((feed) => feed.url);
 
-      try {
-        const updatedState = validateForm(url, addedUrls, state);
-        fetchRSS(url, updatedState, elements, i18n);
-      } catch (err) {
-        console.error(err);
-        state.loadingProcess.error = state.form.error;
-      }
+      validateForm(url, addedUrls, state)
+        .then(() => {
+          state.form.isValid = true;
+          state.form.error = '';
+          return fetchRSS(url, state, elements, i18n);
+        })
+        .catch((err) => {
+          const [firstError] = err.errors;
+          state.form.isValid = false;
+          state.form.error = firstError;
+          console.error(err);
+          state.loadingProcess.error = state.form.error;
+          throw err;
+        });
     });
 
     elements.rssPosts.addEventListener('click', (event) => {
