@@ -4,7 +4,7 @@ import axios from 'axios';
 import onChange from 'on-change';
 import { uniqueId } from 'lodash';
 import render from './view.js';
-import ru from './ru.js';
+import resources from './locales/index.js';
 import parseRSS from './parser.js';
 
 const addProxy = (link) => {
@@ -124,7 +124,7 @@ const app = () => {
   i18n.init({
     lng: 'ru',
     debug: false,
-    resources: { ru },
+    resources,
   }).then(() => {
     const initialState = {
       form: {
@@ -157,9 +157,9 @@ const app = () => {
       const schema = yup.object({
         url: yup
           .string()
-          .url('errors.invalidUrl')
-          .required('errors.required')
-          .notOneOf(addedUrls, 'errors.alreadyExists'),
+          .url()
+          .required()
+          .notOneOf(addedUrls),
       });
       return schema.validate({ url });
     };
