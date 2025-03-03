@@ -1,5 +1,8 @@
 export default {
   translation: {
+    languages: {
+      ru: 'Русский',
+    },
     loading: {
       success: 'RSS успешно загружен',
     },
