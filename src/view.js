@@ -145,6 +145,18 @@ const renderPosts = (elements, i18n, state) => {
   });
 };
 
+const updateModal = (elements, state, postId) => {
+  const { modal } = elements;
+  const post = state.posts.find((p) => p.id === postId);
+  if (!post) return;
+
+  modal.querySelector('.modal-title').textContent = post.title;
+  modal.querySelector('.modal-body').textContent = post.description;
+  const btnModal = elements.modal.querySelector('.full-article');
+  btnModal.href = post.link;
+  btnModal.target = '_blank';
+};
+
 export default (elements, i18n, initialState) => {
   const state = onChange(initialState, () => {
     renderForm(elements, i18n, state);
@@ -157,5 +169,6 @@ export default (elements, i18n, initialState) => {
     renderForm: () => renderForm(elements, i18n, state),
     renderFeeds: () => renderFeeds(elements, i18n, state),
     renderPosts: () => renderPosts(elements, i18n, state),
+    updateModal: (postId) => updateModal(elements, state, postId),
   };
 };

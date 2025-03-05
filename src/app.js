@@ -188,26 +188,8 @@ const app = () => {
     elements.rssPosts.addEventListener('click', (event) => {
       const { target } = event;
       const postId = target.dataset.id;
-
       if (!postId) return;
-      const post = state.posts.find((p) => p.id === postId);
-      if (!post) return;
-
-      state.uiState.viewedPosts.add(post.id);
-
-      if (target.classList.contains('post-title')) {
-        event.preventDefault();
-        window.open(post.link, '_blank');
-      }
-
-      if (target.classList.contains('view-description')) {
-        elements.modal.querySelector('.modal-title').textContent = post.title;
-        elements.modal.querySelector('.modal-body').textContent = post.description;
-
-        const btnModal = elements.modal.querySelector('.full-article');
-        btnModal.href = post.link;
-        btnModal.target = '_blank';
-      }
+      state.uiState.viewedPosts.add(postId);
     });
 
     setTimeout(() => checkForNewPosts(state, elements, i18n), 5000);
