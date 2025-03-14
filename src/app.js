@@ -1,7 +1,6 @@
 import * as yup from 'yup';
 import i18next from 'i18next';
 import axios from 'axios';
-import onChange from 'on-change';
 import { uniqueId } from 'lodash';
 import render from './view.js';
 import resources from './locales/index.js';
@@ -70,7 +69,6 @@ const fetchRSS = (url, state, elements, i18n) => {
         throw new Error('errors.invalidRSS');
       }
       const { feedTitle, feedDescription, posts } = parsedData;
-
       const feedId = uniqueId();
       updatedState.feeds.push({
         id: feedId,
@@ -88,7 +86,7 @@ const fetchRSS = (url, state, elements, i18n) => {
           ...post,
         }));
 
-      updatedState.posts = [...newPosts, ...state.posts];
+      updatedState.posts = [...newPosts, ...updatedState.posts];
       updatedState.loadingProcess.status = 'success';
       updatedState.form.error = '';
       render(elements, i18n, updatedState);
@@ -126,7 +124,7 @@ const app = () => {
     debug: false,
     resources,
   }).then(() => {
-    const initialState = {
+    const state = {
       form: {
         isValid: true,
         error: '',
@@ -141,8 +139,6 @@ const app = () => {
       posts: [],
       feeds: [],
     };
-
-    const state = onChange({ ...initialState }, () => render(elements, i18n, state));
 
     yup.setLocale({
       string: {
@@ -164,24 +160,23 @@ const app = () => {
       return schema.validate({ url });
     };
 
+    const watchedState = render(elements, i18n, state);
+
     elements.form.addEventListener('submit', (event) => {
       event.preventDefault();
       const url = elements.input.value;
-      const addedUrls = state.feeds.map((feed) => feed.url);
+      const addedUrls = watchedState.feeds.map((feed) => feed.url);
 
-      validateForm(url, addedUrls, state)
+      validateForm(url, addedUrls)
         .then(() => {
-          state.form.isValid = true;
-          state.form.error = '';
-          return fetchRSS(url, state, elements, i18n);
+          watchedState.form.isValid = true;
+          watchedState.form.error = '';
+          return fetchRSS(url, watchedState);
         })
-        .catch((err) => {
-          const [firstError] = err.errors;
-          state.form.isValid = false;
-          state.form.error = firstError;
-          console.error(err);
-          state.loadingProcess.error = state.form.error;
-          throw err;
+        .catch((error) => {
+          console.error('Ошибка валидации:', error);
+          watchedState.form.isValid = false;
+          watchedState.form.error = error.message;
         });
     });
 
@@ -189,10 +184,10 @@ const app = () => {
       const { target } = event;
       const postId = target.dataset.id;
       if (!postId) return;
-      state.uiState.viewedPosts.add(postId);
+      watchedState.uiState.viewedPosts.add(postId);
     });
 
-    setTimeout(() => checkForNewPosts(state, elements, i18n), 5000);
+    setTimeout(() => checkForNewPosts(watchedState), 5000);
   });
 };
 export default app;
