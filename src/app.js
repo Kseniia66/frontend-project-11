@@ -1,3 +1,5 @@
+/* eslint-disable no-param-reassign */
+
 import * as yup from 'yup';
 import i18next from 'i18next';
 import axios from 'axios';
@@ -14,10 +16,8 @@ const addProxy = (link) => {
 };
 
 const checkForNewPosts = (state, elements, i18n) => {
-  const updatedState = { ...state };
-
-  const existingTitles = new Set(updatedState.posts.map((post) => post.title));
-  const existingLinks = new Set(updatedState.posts.map((post) => post.link));
+  const existingTitles = new Set(state.posts.map((post) => post.title));
+  const existingLinks = new Set(state.posts.map((post) => post.link));
 
   const feedPromises = state.feeds.map((feed) => axios.get(addProxy(feed.url))
     .then((response) => {
@@ -43,24 +43,22 @@ const checkForNewPosts = (state, elements, i18n) => {
   Promise.all(feedPromises)
     .then((newPosts) => {
       const uniqueNewPosts = newPosts.flat().filter(
-        (post) => !updatedState.posts.some((existingPost) => existingPost.link === post.link),
+        (post) => !state.posts.some((existingPost) => existingPost.link === post.link),
       );
       if (uniqueNewPosts.length > 0) {
-        updatedState.posts = [...uniqueNewPosts, ...updatedState.posts];
+        state.posts = [...uniqueNewPosts, ...state.posts];
       }
     })
     .catch((error) => {
       console.error('Ошибка при проверке новых постов:', error);
     })
     .finally(() => {
-      setTimeout(() => checkForNewPosts(updatedState, elements, i18n), 5000);
+      setTimeout(() => checkForNewPosts(state, elements, i18n), 5000);
     });
 };
 
 const fetchRSS = (url, state, elements, i18n) => {
-  const updatedState = { ...state };
-  updatedState.loadingProcess.status = 'loading';
-  render(elements, i18n, updatedState);
+  state.loadingProcess.status = 'loading';
 
   return axios.get(addProxy(url))
     .then((response) => {
@@ -70,14 +68,14 @@ const fetchRSS = (url, state, elements, i18n) => {
       }
       const { feedTitle, feedDescription, posts } = parsedData;
       const feedId = uniqueId();
-      updatedState.feeds.push({
+      state.feeds.push({
         id: feedId,
         title: feedTitle,
         description: feedDescription,
         url,
       });
 
-      const existingLinks = new Set(updatedState.posts.map((post) => post.link));
+      const existingLinks = new Set(state.posts.map((post) => post.link));
       const newPosts = posts
         .filter((post) => !existingLinks.has(post.link))
         .map((post) => ({
@@ -86,24 +84,22 @@ const fetchRSS = (url, state, elements, i18n) => {
           ...post,
         }));
 
-      updatedState.posts = [...newPosts, ...updatedState.posts];
-      updatedState.loadingProcess.status = 'success';
-      updatedState.form.error = '';
-      render(elements, i18n, updatedState);
-      checkForNewPosts(updatedState, elements, i18n);
+      state.posts = [...newPosts, ...state.posts];
+      state.loadingProcess.status = 'success';
+      state.form.error = '';
+      checkForNewPosts(state, elements, i18n);
     })
     .catch((err) => {
-      if (err.message === 'Network Error') {
-        updatedState.loadingProcess.status = 'fail';
-        updatedState.loadingProcess.error = 'errors.networkError';
-      } else if (err.message === 'errors.invalidRSS') {
-        updatedState.loadingProcess.status = 'fail';
-        updatedState.loadingProcess.error = 'errors.invalidRSS';
+      if (err.isAxiosError) {
+        state.loadingProcess.status = 'fail';
+        state.loadingProcess.error = 'errors.networkError';
+      } else if (err.isParsingError) {
+        state.loadingProcess.status = 'fail';
+        state.loadingProcess.error = 'errors.invalidRSS';
       } else {
-        updatedState.loadingProcess.status = 'fail';
-        updatedState.loadingProcess.error = 'errors.unknown';
+        state.loadingProcess.status = 'fail';
+        state.loadingProcess.error = 'errors.unknown';
       }
-      throw err;
     });
 };
 

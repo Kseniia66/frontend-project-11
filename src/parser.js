@@ -4,7 +4,9 @@ const parseRSS = (data) => {
 
   const parseError = doc.querySelector('parsererror');
   if (parseError) {
-    throw new Error('errors.invalidRSS');
+    const error = new Error(parseError.textContent);
+    error.isRarsingError = true;
+    throw error;
   }
 
   const feedTitle = doc.querySelector('channel > title').textContent;
