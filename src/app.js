@@ -33,15 +33,6 @@ const checkForNewPosts = (state, elements, i18n) => {
           feedId: feed.id,
         }));
 
-      return newPosts;
-    })
-    .catch((error) => {
-      console.error('Ошибка при проверке фида:', feed.url, error.message);
-      return [];
-    }));
-
-  Promise.all(feedPromises)
-    .then((newPosts) => {
       const uniqueNewPosts = newPosts.flat().filter(
         (post) => !state.posts.some((existingPost) => existingPost.link === post.link),
       );
@@ -50,6 +41,11 @@ const checkForNewPosts = (state, elements, i18n) => {
       }
     })
     .catch((error) => {
+      console.error('Ошибка при проверке фида:', feed.url, error.message);
+    }));
+
+  Promise.all(feedPromises)
+    .catch((error) => {
       console.error('Ошибка при проверке новых постов:', error);
     })
     .finally(() => {
@@ -57,7 +53,7 @@ const checkForNewPosts = (state, elements, i18n) => {
     });
 };
 
-const fetchRSS = (url, state, elements, i18n) => {
+const fetchRSS = (url, state) => {
   state.loadingProcess.status = 'loading';
 
   return axios.get(addProxy(url))
@@ -87,7 +83,6 @@ const fetchRSS = (url, state, elements, i18n) => {
       state.posts = [...newPosts, ...state.posts];
       state.loadingProcess.status = 'success';
       state.form.error = '';
-      checkForNewPosts(state, elements, i18n);
     })
     .catch((err) => {
       if (err.isAxiosError) {
@@ -167,7 +162,7 @@ const app = () => {
         .then(() => {
           watchedState.form.isValid = true;
           watchedState.form.error = '';
-          return fetchRSS(url, watchedState);
+          fetchRSS(url, watchedState);
         })
         .catch((error) => {
           console.error('Ошибка валидации:', error);
