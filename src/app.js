@@ -15,16 +15,13 @@ const addProxy = (link) => {
   return proxyUrl.toString();
 };
 
-const checkForNewPosts = (state, elements, i18n) => {
+const checkForNewPosts = (state) => {
   const existingTitles = new Set(state.posts.map((post) => post.title));
   const existingLinks = new Set(state.posts.map((post) => post.link));
 
   const feedPromises = state.feeds.map((feed) => axios.get(addProxy(feed.url))
     .then((response) => {
       const parsedData = parseRSS(response.data.contents);
-      if (!parsedData) {
-        throw new Error('errors.invalidRSS');
-      }
       const newPosts = parsedData.posts
         .filter((post) => !existingLinks.has(post.link) && !existingTitles.has(post.title))
         .map((post) => ({
@@ -33,11 +30,8 @@ const checkForNewPosts = (state, elements, i18n) => {
           feedId: feed.id,
         }));
 
-      const uniqueNewPosts = newPosts.flat().filter(
-        (post) => !state.posts.some((existingPost) => existingPost.link === post.link),
-      );
-      if (uniqueNewPosts.length > 0) {
-        state.posts = [...uniqueNewPosts, ...state.posts];
+      if (newPosts.length > 0) {
+        state.posts = [...newPosts, ...state.posts];
       }
     })
     .catch((error) => {
@@ -49,7 +43,7 @@ const checkForNewPosts = (state, elements, i18n) => {
       console.error('Ошибка при проверке новых постов:', error);
     })
     .finally(() => {
-      setTimeout(() => checkForNewPosts(state, elements, i18n), 5000);
+      setTimeout(() => checkForNewPosts(state), 5000);
     });
 };
 
