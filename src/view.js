@@ -34,14 +34,6 @@ const renderForm = (elements, i18n, state) => {
 const renderFeeds = (elements, i18n, state) => {
   const { rssFeeds } = elements;
 
-  if (state.loadingProcess.error === 'errors.networkError') {
-    return;
-  }
-
-  if (!state.form.isValid && state.form.error !== 'errors.alreadyExists') {
-    return;
-  }
-
   rssFeeds.innerHTML = '';
 
   const divCards = document.createElement('div');
@@ -82,14 +74,6 @@ const renderFeeds = (elements, i18n, state) => {
 
 const renderPosts = (elements, i18n, state) => {
   const { rssPosts, modal } = elements;
-
-  if (state.loadingProcess.error === 'errors.networkError') {
-    return;
-  }
-
-  if (!state.form.isValid && state.form.error !== 'errors.alreadyExists') {
-    return;
-  }
 
   rssPosts.innerHTML = '';
 

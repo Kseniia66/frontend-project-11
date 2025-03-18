@@ -39,9 +39,6 @@ const checkForNewPosts = (state) => {
     }));
 
   Promise.all(feedPromises)
-    .catch((error) => {
-      console.error('Ошибка при проверке новых постов:', error);
-    })
     .finally(() => {
       setTimeout(() => checkForNewPosts(state), 5000);
     });
@@ -53,9 +50,6 @@ const fetchRSS = (url, state) => {
   return axios.get(addProxy(url))
     .then((response) => {
       const parsedData = parseRSS(response.data.contents);
-      if (!parsedData) {
-        throw new Error('errors.invalidRSS');
-      }
       const { feedTitle, feedDescription, posts } = parsedData;
       const feedId = uniqueId();
       state.feeds.push({
@@ -65,9 +59,7 @@ const fetchRSS = (url, state) => {
         url,
       });
 
-      const existingLinks = new Set(state.posts.map((post) => post.link));
       const newPosts = posts
-        .filter((post) => !existingLinks.has(post.link))
         .map((post) => ({
           id: uniqueId(),
           feedId,
