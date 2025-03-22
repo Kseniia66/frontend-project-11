@@ -159,9 +159,24 @@ const app = () => {
 
     elements.rssPosts.addEventListener('click', (event) => {
       const { target } = event;
-      const postId = target.dataset.id;
-      if (!postId) return;
-      watchedState.uiState.viewedPosts.add(postId);
+      if (target.classList.contains('view-description')) {
+        const postId = target.dataset.id;
+        const post = state.posts.find((p) => p.id === postId);
+        if (post) {
+          elements.modal.querySelector('.modal-title').textContent = post.title;
+          elements.modal.querySelector('.modal-body').textContent = post.description;
+          const btnModal = elements.modal.querySelector('.full-article');
+          btnModal.href = post.link;
+          btnModal.target = '_blank';
+          watchedState.uiState.viewedPosts.add(postId);
+        }
+      }
+      if (target.tagName === 'A' && target.classList.contains('post-title')) {
+        const postId = target.dataset.id;
+        if (!postId) return;
+
+        watchedState.uiState.viewedPosts.add(postId);
+      }
     });
 
     setTimeout(() => checkForNewPosts(watchedState), 5000);

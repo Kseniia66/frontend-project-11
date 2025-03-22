@@ -73,7 +73,7 @@ const renderFeeds = (elements, i18n, state) => {
 };
 
 const renderPosts = (elements, i18n, state) => {
-  const { rssPosts, modal } = elements;
+  const { rssPosts } = elements;
 
   rssPosts.innerHTML = '';
 
@@ -112,13 +112,6 @@ const renderPosts = (elements, i18n, state) => {
     button.dataset.bsTarget = '#modal';
     button.textContent = i18n.t('preview');
     button.classList.add('view-description');
-
-    modal.querySelector('.modal-title').textContent = post.title;
-    modal.querySelector('.modal-body').textContent = post.description;
-
-    const btnModal = modal.querySelector('.full-article');
-    btnModal.href = post.link;
-    btnModal.target = '_blank';
 
     div.append(postsTitle);
     divCards.append(div);
