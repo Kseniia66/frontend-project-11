@@ -11,6 +11,9 @@ export default {
   devServer: {
     open: true,
     host: 'localhost',
+    client: {
+      overlay: false,
+    },
   },
   module: {
     rules: [
