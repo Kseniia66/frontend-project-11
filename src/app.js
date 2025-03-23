@@ -46,6 +46,7 @@ const checkForNewPosts = (state) => {
 
 const fetchRSS = (url, state) => {
   state.loadingProcess.status = 'loading';
+  state.form.error = '';
 
   return axios.get(addProxy(url))
     .then((response) => {
@@ -153,7 +154,7 @@ const app = () => {
         .catch((error) => {
           console.error('Ошибка валидации:', error);
           watchedState.form.isValid = false;
-          watchedState.form.error = error.message;
+          watchedState.form.error = error.message.key || error.message;
         });
     });
 

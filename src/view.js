@@ -24,6 +24,11 @@ const renderForm = (elements, i18n, state) => {
     feedback.textContent = i18n.t('loading.success');
     feedback.classList.remove('text-danger');
     feedback.classList.add('text-success');
+  } else if (state.form.error) {
+    input.classList.add('is-invalid');
+    feedback.textContent = i18n.t(state.form.error);
+    feedback.classList.add('text-danger');
+    feedback.classList.remove('text-success');
   } else {
     input.classList.remove('is-invalid');
     feedback.textContent = '';
@@ -126,12 +131,15 @@ export default (elements, i18n, initialState) => {
   const watchedState = onChange(initialState, (path) => {
     switch (path) {
       case 'loadingProcess.status':
+      case 'loadingProcess.error':
+      case 'form.error':
         renderForm(elements, i18n, watchedState);
         break;
       case 'feeds':
         renderFeeds(elements, i18n, watchedState);
         break;
       case 'posts':
+      case 'uiState.viewedPosts':
         renderPosts(elements, i18n, watchedState);
         break;
       default:
