@@ -44,7 +44,7 @@ const checkForNewPosts = (state) => {
     });
 };
 
-const fetchRSS = (url, state) => {
+const fetchRSS = (url, state, elements) => {
   state.loadingProcess.status = 'loading';
   state.form.error = '';
 
@@ -69,6 +69,8 @@ const fetchRSS = (url, state) => {
       state.posts = [...newPosts, ...state.posts];
       state.loadingProcess.status = 'success';
       state.form.error = '';
+      elements.input.value = '';
+      elements.input.focus();
     })
     .catch((err) => {
       if (err.isAxiosError) {
@@ -148,7 +150,7 @@ const app = () => {
         .then(() => {
           watchedState.form.isValid = true;
           watchedState.form.error = '';
-          fetchRSS(url, watchedState);
+          fetchRSS(url, watchedState, elements);
         })
         .catch((error) => {
           console.error('Ошибка валидации:', error);

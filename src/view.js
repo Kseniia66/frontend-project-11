@@ -3,11 +3,6 @@ import onChange from 'on-change';
 const renderForm = (elements, i18n, state) => {
   const { input, feedback, submitButton } = elements;
 
-  if (state.loadingProcess.status === 'success') {
-    input.value = '';
-    input.focus();
-  }
-
   if (state.loadingProcess.status === 'loading') {
     submitButton.disabled = true;
   } else {
