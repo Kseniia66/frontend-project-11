@@ -146,6 +146,9 @@ const app = () => {
       const url = elements.input.value;
       const addedUrls = watchedState.feeds.map((feed) => feed.url);
 
+      watchedState.loadingProcess.error = '';
+      watchedState.form.error = '';
+
       validateForm(url, addedUrls)
         .then(() => {
           watchedState.form.isValid = true;
