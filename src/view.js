@@ -107,7 +107,6 @@ const renderPosts = (elements, i18n, state) => {
     title.target = '_blank';
     title.textContent = post.title;
     title.rel = 'noopener noreferrer';
-    title.classList.add('post-title');
 
     const button = document.createElement('button');
     button.setAttribute('type', 'button');
