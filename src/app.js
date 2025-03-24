@@ -48,7 +48,7 @@ const fetchRSS = (url, state) => {
   state.loadingProcess.status = 'loading';
   state.form.error = '';
 
-  return axios.get(addProxy(url))
+  axios.get(addProxy(url))
     .then((response) => {
       const parsedData = parseRSS(response.data.contents);
       const { feedTitle, feedDescription, posts } = parsedData;
@@ -60,12 +60,11 @@ const fetchRSS = (url, state) => {
         url,
       });
 
-      const newPosts = posts
-        .map((post) => ({
-          id: uniqueId(),
-          feedId,
-          ...post,
-        }));
+      const newPosts = posts.map((post) => ({
+        id: uniqueId(),
+        feedId,
+        ...post,
+      }));
 
       state.posts = [...newPosts, ...state.posts];
       state.loadingProcess.status = 'success';
@@ -155,6 +154,7 @@ const app = () => {
           console.error('Ошибка валидации:', error);
           watchedState.form.isValid = false;
           watchedState.form.error = error.message.key || error.message;
+          watchedState.loadingProcess.status = 'fail';
         });
     });
 
