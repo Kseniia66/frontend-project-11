@@ -9,8 +9,13 @@ const renderForm = (elements, i18n, state) => {
     submitButton.disabled = false;
   }
 
+  input.classList.remove('is-invalid');
+
   if (state.loadingProcess.error) {
-    input.classList.add('is-invalid');
+    if (state.loadingProcess.error === 'errors.invalidUrl'
+      || state.loadingProcess.error === 'errors.alreadyExists') {
+      input.classList.add('is-invalid');
+    }
     feedback.textContent = i18n.t(state.loadingProcess.error);
     feedback.classList.add('text-danger');
     feedback.classList.remove('text-success');
